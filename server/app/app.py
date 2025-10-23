@@ -45,7 +45,8 @@ DEFAULT_CONFIG = {
     'resolution': '1280x720',
     'framerate': '30',
     'bitrate': '2500k',
-    'audio_bitrate': '128k'
+    'audio_bitrate': '128k',
+    'audio_gain': 0.5  # 50% volume to reduce background noise
 }
 
 def get_local_ip():
@@ -177,6 +178,14 @@ def index():
     status = get_stream_status()
     return render_template('index.html', config=config, status=status)
 
+@app.route('/preview')
+def preview():
+    return render_template('preview.html')
+
+@app.route('/settings')
+def settings():
+    return render_template('settings.html')
+
 @app.route('/api/config', methods=['GET', 'POST'])
 def api_config():
     if request.method == 'GET':
@@ -258,6 +267,103 @@ def dashboard():
     """Stream monitoring dashboard"""
     return render_template("dashboard.html")
 
+@app.route("/api/sources")
+def api_sources():
+    """Get list of all available stream sources"""
+    sources = []
+
+    # Add USB cameras
+    cameras = camera_discovery.discover_usb_cameras()
+    for cam in cameras:
+        # Only show actual capture devices (video0, video2, etc - not metadata devices like video1)
+        # C920 creates video0 (capture) and video1 (metadata), we only want video0
+        if ("C920" in cam.get("name", "") or "webcam" in cam.get("name", "").lower()) and cam.get("path") == "/dev/video0":
+            # Get device name for HLS path
+            device_name = cam["path"].split('/')[-1]  # e.g., "video0"
+            sources.append({
+                "id": cam["path"],
+                "name": f"{cam['name']} (USB)",
+                "type": "usb",
+                "path": cam["path"],
+                "hls_url": f"http://{get_local_ip()}:8888/preview_{device_name}/index.m3u8"
+            })
+
+    # Add incoming RTMP streams
+    streams = stream_manager.get_incoming_streams()
+    for stream in streams:
+        sources.append({
+            "id": f"rtmp://localhost:1935/{stream['name']}",
+            "name": f"{stream['name']} (RTMP Stream)",
+            "type": "rtmp",
+            "url": f"rtmp://localhost:1935/{stream['name']}",
+            "hls_url": f"http://{get_local_ip()}:8888/{stream['name']}/index.m3u8"
+        })
+
+    return jsonify({"sources": sources})
+
+@app.route("/api/rebroadcast/start", methods=['POST'])
+def api_rebroadcast_start():
+    """Start rebroadcasting a source to a platform"""
+    data = request.json
+    source_id = data.get('source_id')
+    platform = data.get('platform')
+
+    if not source_id or not platform:
+        return jsonify({"success": False, "error": "Missing source_id or platform"})
+
+    # Get config
+    config = load_config()
+
+    # Handle special "preview" platform for local preview only
+    if platform == 'preview':
+        source_name = source_id.split('/')[-1]  # e.g., "video0"
+        target_url = f"rtmp://localhost:1935/preview_{source_name}"
+        stream_id = f"preview_{source_name}"
+    else:
+        # Get platform config
+        if platform not in config['platforms']:
+            return jsonify({"success": False, "error": "Invalid platform"})
+
+        platform_config = config['platforms'][platform]
+
+        # Build target RTMP URL
+        target_url = f"{platform_config['rtmp_url']}{platform_config['stream_key']}"
+
+        # Generate stream ID
+        source_name = source_id.split('/')[-1]  # e.g., "video0" or "gopro1"
+        stream_id = f"{source_name}_to_{platform}"
+
+    # Start rebroadcast
+    result = stream_manager.start_rebroadcast(
+        stream_id=stream_id,
+        source_url=source_id,
+        target_url=target_url,
+        config=config
+    )
+
+    if result['success']:
+        return jsonify({"success": True, "stream_id": stream_id})
+    else:
+        return jsonify({"success": False, "error": result.get('error', 'Unknown error')})
+
+@app.route("/api/rebroadcast/stop", methods=['POST'])
+def api_rebroadcast_stop():
+    """Stop a rebroadcast stream"""
+    data = request.json
+    stream_id = data.get('stream_id')
+
+    if not stream_id:
+        return jsonify({"success": False, "error": "Missing stream_id"})
+
+    result = stream_manager.stop_rebroadcast(stream_id)
+    return jsonify(result)
+
+@app.route("/api/rebroadcast/status")
+def api_rebroadcast_status():
+    """Get status of all rebroadcast streams"""
+    streams = stream_manager.get_active_streams()
+    return jsonify({"streams": streams})
+
 if __name__ == "__main__":
     # Ensure config exists
     if not CONFIG_FILE.exists():
@@ -280,31 +386,3 @@ if __name__ == "__main__":
     
     # Run on all interfaces so it can be accessed from network
     app.run(host="0.0.0.0", port=5000, debug=False)
-
-@app.route("/api/sources")
-def api_sources():
-    """Get list of all available stream sources"""
-    sources = []
-    
-    # Add USB cameras
-    cameras = camera_discovery.discover_usb_cameras()
-    for cam in cameras:
-        if "C920" in cam.get("name", "") or "webcam" in cam.get("name", "").lower() or cam.get("path") in ["/dev/video0", "/dev/video1"]:
-            sources.append({
-                "id": cam["path"],
-                "name": f"{cam['name']} (USB)",
-                "type": "usb",
-                "path": cam["path"]
-            })
-    
-    # Add incoming RTMP streams
-    streams = stream_manager.get_incoming_streams()
-    for stream in streams:
-        sources.append({
-            "id": f"rtmp://localhost:1935/{stream['name']}",
-            "name": f"{stream['name']} (RTMP Stream)",
-            "type": "rtmp",
-            "url": f"rtmp://localhost:1935/{stream['name']}"
-        })
-    
-    return jsonify({"sources": sources})

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Settings - Stream Control</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            padding-top: max(20px, env(safe-area-inset-top));
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 0.95em;
+        }
+
+        .nav-link {
+            display: inline-block;
+            margin-top: 16px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .platform-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .platform-icon {
+            font-size: 2em;
+        }
+
+        .platform-info h2 {
+            color: #333;
+            font-size: 1.3em;
+            margin-bottom: 4px;
+        }
+
+        .platform-info p {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-family: monospace;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 6px;
+            color: #999;
+            font-size: 0.85em;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .status-indicator.configured {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-indicator.not-configured {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .save-section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .success-message {
+            display: none;
+            background: #d1fae5;
+            color: #065f46;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .help-section {
+            background: #f0f9ff;
+            border-left: 4px solid #0ea5e9;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .help-section h3 {
+            color: #0c4a6e;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+
+        .help-section p {
+            color: #075985;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .help-section a {
+            color: #0284c7;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Platform Settings</h1>
+            <p class="subtitle">Configure your streaming platforms once, then just select them on the main screen</p>
+            <a href="/" class="nav-link">← Back to Stream Control</a>
+        </div>
+
+        <div id="success-message" class="success-message">
+            ✅ Settings saved successfully!
+        </div>
+
+        <!-- Test Platform -->
+        <div class="card" style="border: 2px solid #10b981;">
+            <div class="platform-header">
+                <div class="platform-icon">🧪</div>
+                <div class="platform-info">
+                    <h2>Test Stream (Local)</h2>
+                    <p>Test broadcasting without using your social accounts</p>
+                </div>
+                <span id="test-status" class="status-indicator configured">✓ Pre-Configured</span>
+            </div>
+
+            <div class="form-group">
+                <label>RTMP Server URL</label>
+                <input type="text" id="test-url" value="rtmp://localhost:1935/" readonly style="background: #f0f9ff;">
+            </div>
+
+            <div class="form-group">
+                <label>Stream Key</label>
+                <input type="text" id="test-key" value="test_output" readonly style="background: #f0f9ff;">
+                <small style="color: #10b981; font-weight: 600;">✓ Ready to use - no setup needed!</small>
+            </div>
+
+            <div class="help-section" style="background: #d1fae5; border-left-color: #10b981;">
+                <h3 style="color: #065f46;">How to test:</h3>
+                <p style="color: #047857;">1. Go to main Stream Control screen<br>
+                2. Select "🧪 Test Stream (Local)" platform<br>
+                3. Click "Go Live"<br>
+                4. View your stream at: <a href="http://192.168.86.31:8888/test_output/index.m3u8" target="_blank" style="color: #059669;">Dashboard</a> or HLS player</p>
+            </div>
+        </div>
+
+        <!-- YouTube -->
+        <div class="card">
+            <div class="platform-header">
+                <div class="platform-icon">📺</div>
+                <div class="platform-info">
+                    <h2>YouTube Live</h2>
+                    <p>Stream to your YouTube channel</p>
+                </div>
+                <span id="youtube-status" class="status-indicator not-configured">Not Configured</span>
+            </div>
+
+            <div class="form-group">
+                <label>RTMP Server URL</label>
+                <input type="text" id="youtube-url" value="rtmp://a.rtmp.youtube.com/live2/" readonly>
+            </div>
+
+            <div class="form-group">
+                <label>Stream Key</label>
+                <input type="password" id="youtube-key" placeholder="Enter your YouTube stream key">
+                <small>Get your stream key from YouTube Studio → Go Live → Stream Settings</small>
+            </div>
+
+            <div class="form-group">
+                <label>Channel URL (Optional - for viewing your live stream)</label>
+                <input type="text" id="youtube-channel" placeholder="https://youtube.com/@yourchannel">
+                <small>Your YouTube channel URL where viewers can watch your stream</small>
+            </div>
+
+            <div class="help-section">
+                <h3>How to get your YouTube stream key:</h3>
+                <p>1. Go to <a href="https://studio.youtube.com" target="_blank">YouTube Studio</a><br>
+                2. Click "Create" → "Go Live"<br>
+                3. Select "Stream" tab<br>
+                4. Copy your "Stream key"</p>
+            </div>
+        </div>
+
+        <!-- Facebook -->
+        <div class="card">
+            <div class="platform-header">
+                <div class="platform-icon">📘</div>
+                <div class="platform-info">
+                    <h2>Facebook Live</h2>
+                    <p>Stream to your Facebook page or profile</p>
+                </div>
+                <span id="facebook-status" class="status-indicator not-configured">Not Configured</span>
+            </div>
+
+            <div class="form-group">
+                <label>RTMP Server URL</label>
+                <input type="text" id="facebook-url" value="rtmps://live-api-s.facebook.com:443/rtmp/" readonly>
+            </div>
+
+            <div class="form-group">
+                <label>Stream Key</label>
+                <input type="password" id="facebook-key" placeholder="Enter your Facebook stream key">
+                <small>Get your stream key from Facebook → Live Producer → Stream Setup</small>
+            </div>
+
+            <div class="form-group">
+                <label>Page URL (Optional - for viewing your live stream)</label>
+                <input type="text" id="facebook-page" placeholder="https://facebook.com/yourpage">
+                <small>Your Facebook page or profile URL where viewers can watch your stream</small>
+            </div>
+
+            <div class="help-section">
+                <h3>How to get your Facebook stream key:</h3>
+                <p>1. Go to your Facebook Page<br>
+                2. Click "Live" or go to <a href="https://www.facebook.com/live/producer" target="_blank">Live Producer</a><br>
+                3. Select "Use stream key"<br>
+                4. Copy your "Stream key"</p>
+            </div>
+        </div>
+
+        <!-- Twitch -->
+        <div class="card">
+            <div class="platform-header">
+                <div class="platform-icon">🎮</div>
+                <div class="platform-info">
+                    <h2>Twitch</h2>
+                    <p>Stream to your Twitch channel</p>
+                </div>
+                <span id="twitch-status" class="status-indicator not-configured">Not Configured</span>
+            </div>
+
+            <div class="form-group">
+                <label>RTMP Server URL</label>
+                <input type="text" id="twitch-url" value="rtmp://live.twitch.tv/app/" readonly>
+            </div>
+
+            <div class="form-group">
+                <label>Stream Key</label>
+                <input type="password" id="twitch-key" placeholder="Enter your Twitch stream key">
+                <small>Get your stream key from Twitch Dashboard → Settings → Stream</small>
+            </div>
+
+            <div class="form-group">
+                <label>Channel URL (Optional - for viewing your live stream)</label>
+                <input type="text" id="twitch-channel" placeholder="https://twitch.tv/yourchannel">
+                <small>Your Twitch channel URL where viewers can watch your stream</small>
+            </div>
+
+            <div class="help-section">
+                <h3>How to get your Twitch stream key:</h3>
+                <p>1. Go to <a href="https://dashboard.twitch.tv" target="_blank">Twitch Dashboard</a><br>
+                2. Click "Settings" → "Stream"<br>
+                3. Under "Primary Stream key", click "Copy"</p>
+            </div>
+        </div>
+
+        <!-- Custom RTMP -->
+        <div class="card">
+            <div class="platform-header">
+                <div class="platform-icon">🔧</div>
+                <div class="platform-info">
+                    <h2>Custom RTMP</h2>
+                    <p>Stream to any RTMP server</p>
+                </div>
+                <span id="custom-status" class="status-indicator not-configured">Not Configured</span>
+            </div>
+
+            <div class="form-group">
+                <label>RTMP Server URL</label>
+                <input type="text" id="custom-url" placeholder="rtmp://your-server.com/live/">
+                <small>Enter the full RTMP server URL</small>
+            </div>
+
+            <div class="form-group">
+                <label>Stream Key</label>
+                <input type="password" id="custom-key" placeholder="Enter your stream key (if required)">
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="save-section">
+            <button class="btn btn-primary" onclick="saveSettings()">💾 Save All Settings</button>
+        </div>
+    </div>
+
+    <script>
+        let config = null;
+
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/config');
+                config = await response.json();
+
+                // Populate fields
+                if (config.platforms.test) {
+                    document.getElementById('test-url').value = config.platforms.test.rtmp_url;
+                    document.getElementById('test-key').value = config.platforms.test.stream_key || '';
+                }
+
+                document.getElementById('youtube-url').value = config.platforms.youtube.rtmp_url;
+                document.getElementById('youtube-key').value = config.platforms.youtube.stream_key || '';
+                document.getElementById('youtube-channel').value = config.platforms.youtube.channel_url || '';
+
+                document.getElementById('facebook-url').value = config.platforms.facebook.rtmp_url;
+                document.getElementById('facebook-key').value = config.platforms.facebook.stream_key || '';
+                document.getElementById('facebook-page').value = config.platforms.facebook.channel_url || '';
+
+                document.getElementById('twitch-url').value = config.platforms.twitch.rtmp_url;
+                document.getElementById('twitch-key').value = config.platforms.twitch.stream_key || '';
+                document.getElementById('twitch-channel').value = config.platforms.twitch.channel_url || '';
+
+                document.getElementById('custom-url').value = config.platforms.custom.rtmp_url || '';
+                document.getElementById('custom-key').value = config.platforms.custom.stream_key || '';
+
+                // Update status indicators
+                updateStatusIndicators();
+            } catch (e) {
+                console.error('Error loading settings:', e);
+                alert('❌ Error loading settings');
+            }
+        }
+
+        function updateStatusIndicators() {
+            const platforms = ['youtube', 'facebook', 'twitch', 'custom'];
+
+            platforms.forEach(platform => {
+                const key = document.getElementById(`${platform}-key`).value;
+                const status = document.getElementById(`${platform}-status`);
+
+                if (key && key.trim() !== '') {
+                    status.className = 'status-indicator configured';
+                    status.textContent = '✓ Configured';
+                } else {
+                    status.className = 'status-indicator not-configured';
+                    status.textContent = 'Not Configured';
+                }
+            });
+        }
+
+        async function saveSettings() {
+            // Update config object
+            if (!config.platforms.test) {
+                config.platforms.test = {};
+            }
+            config.platforms.test.rtmp_url = document.getElementById('test-url').value;
+            config.platforms.test.stream_key = document.getElementById('test-key').value;
+            config.platforms.test.name = 'Test Stream (Local)';
+
+            config.platforms.youtube.rtmp_url = document.getElementById('youtube-url').value;
+            config.platforms.youtube.stream_key = document.getElementById('youtube-key').value;
+            config.platforms.youtube.channel_url = document.getElementById('youtube-channel').value;
+
+            config.platforms.facebook.rtmp_url = document.getElementById('facebook-url').value;
+            config.platforms.facebook.stream_key = document.getElementById('facebook-key').value;
+            config.platforms.facebook.channel_url = document.getElementById('facebook-page').value;
+
+            config.platforms.twitch.rtmp_url = document.getElementById('twitch-url').value;
+            config.platforms.twitch.stream_key = document.getElementById('twitch-key').value;
+            config.platforms.twitch.channel_url = document.getElementById('twitch-channel').value;
+
+            config.platforms.custom.rtmp_url = document.getElementById('custom-url').value;
+            config.platforms.custom.stream_key = document.getElementById('custom-key').value;
+
+            // Save to server
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Show success message
+                    const msg = document.getElementById('success-message');
+                    msg.classList.add('show');
+                    setTimeout(() => msg.classList.remove('show'), 3000);
+
+                    // Update status indicators
+                    updateStatusIndicators();
+                } else {
+                    alert('❌ Error saving settings');
+                }
+            } catch (e) {
+                console.error('Error saving settings:', e);
+                alert('❌ Error saving settings');
+            }
+        }
+
+        // Update status when keys are typed
+        ['youtube-key', 'facebook-key', 'twitch-key', 'custom-key'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateStatusIndicators);
+        });
+
+        // Initial load
+        loadSettings();
+    </script>
+</body>
+</html>

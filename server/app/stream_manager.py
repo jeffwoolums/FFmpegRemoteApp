@@ -98,6 +98,9 @@ class StreamManager:
             ]
         else:
             # USB camera input
+            # Get audio gain setting (default to 0.5 = 50% volume to reduce background noise)
+            audio_gain = config.get('audio_gain', 0.5)
+
             cmd = [
                 'ffmpeg',
                 '-f', 'v4l2',
@@ -114,6 +117,7 @@ class StreamManager:
                 '-bufsize', str(int(config.get('bitrate', '2500k').rstrip('k')) * 2) + 'k',
                 '-pix_fmt', 'yuv420p',
                 '-g', '60',
+                '-af', f'volume={audio_gain}',  # Audio filter for volume control
                 '-c:a', 'aac',
                 '-b:a', config.get('audio_bitrate', '128k'),
                 '-ar', '44100',

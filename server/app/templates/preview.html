@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Camera Preview - Stream Control</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            padding-top: max(20px, env(safe-area-inset-top));
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 0.95em;
+        }
+
+        .nav-link {
+            display: inline-block;
+            margin-top: 12px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 640px 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .video-section {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        video {
+            width: 100%;
+            max-width: 640px;
+            background: #000;
+            border: 2px solid #00d4ff;
+            border-radius: 8px;
+        }
+
+        .controls-section {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            color: #333;
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.95em;
+        }
+
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .audio-indicators {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .indicator-title {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 15px;
+            font-size: 1em;
+        }
+
+        .channel-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .channel-label {
+            color: #555;
+            font-weight: 600;
+            font-size: 0.9em;
+            min-width: 80px;
+        }
+
+        .audio-light {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #d1d5db;
+            border: 3px solid #9ca3af;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .audio-light.active {
+            background: #10b981;
+            border-color: #059669;
+            box-shadow: 0 0 20px #10b981, 0 0 40px #10b981, inset 0 0 15px rgba(255,255,255,0.3);
+        }
+
+        .audio-level {
+            color: #9ca3af;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .audio-level.active {
+            color: #10b981;
+        }
+
+        .unmute-button {
+            width: 100%;
+            padding: 16px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            transition: all 0.2s;
+        }
+
+        .unmute-button:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+
+        .unmute-button.muted {
+            background: #6b7280;
+        }
+
+        .unmute-button.muted:hover {
+            background: #4b5563;
+        }
+
+        .broadcast-button {
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.3em;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+            transition: all 0.2s;
+        }
+
+        .broadcast-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+        }
+
+        .broadcast-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .broadcast-button.live {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .stop-button {
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.3em;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        .live-indicator {
+            display: none;
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .live-indicator.active {
+            display: block;
+        }
+
+        .live-indicator h3 {
+            color: #991b1b;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .live-dot {
+            width: 12px;
+            height: 12px;
+            background: #ef4444;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .view-link {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .view-link:hover {
+            background: #5568d3;
+        }
+
+        /* Countdown Modal */
+        .countdown-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .countdown-modal.active {
+            display: flex;
+        }
+
+        .countdown-number {
+            font-size: 15em;
+            font-weight: 900;
+            color: white;
+            text-shadow: 0 0 40px rgba(255, 255, 255, 0.5);
+            animation: countdownPulse 1s ease-in-out;
+        }
+
+        @keyframes countdownPulse {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .countdown-live {
+            font-size: 10em;
+            font-weight: 900;
+            color: #ef4444;
+            text-shadow: 0 0 60px rgba(239, 68, 68, 0.8);
+            animation: livePulse 0.5s ease-in-out;
+        }
+
+        @keyframes livePulse {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @media (max-width: 1200px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="camera-name">📹 Camera Preview</h1>
+            <p class="subtitle">Configure broadcast settings and go live</p>
+            <a href="/" class="nav-link">← Back to Camera List</a>
+        </div>
+
+        <div class="content-grid">
+            <!-- LEFT SIDE: VIDEO PREVIEW -->
+            <div class="video-section">
+                <h3 style="color: #333; margin-bottom: 15px;">📺 Live Camera Feed</h3>
+                <video id="preview" controls muted playsinline autoplay></video>
+                <p style="color: #999; font-size: 0.85em; margin-top: 10px;">
+                    Local preview - not broadcasting yet
+                </p>
+            </div>
+
+            <!-- RIGHT SIDE: BROADCAST CONTROLS -->
+            <div class="controls-section">
+                <div class="section-title">🎬 Broadcast Settings</div>
+
+                <!-- Platform Selection -->
+                <div class="form-group">
+                    <label>Select Platform</label>
+                    <select id="platform-select">
+                        <option value="">-- Select Platform --</option>
+                    </select>
+                    <small id="platform-help" style="color: #999; font-size: 0.85em; display: block; margin-top: 6px;">
+                        Configure platform keys in <a href="/settings" style="color: #667eea;">Settings</a>
+                    </small>
+                </div>
+
+                <!-- Unmute Button -->
+                <button id="unmute-btn" class="unmute-button muted" onclick="toggleMute()">
+                    🔇 UNMUTE to Hear Audio
+                </button>
+
+                <!-- Audio Indicators -->
+                <div class="audio-indicators">
+                    <div class="indicator-title">🎙️ Audio Detection</div>
+
+                    <div class="channel-indicator">
+                        <div class="channel-label">LEFT:</div>
+                        <div class="audio-light" id="light-left"></div>
+                        <div class="audio-level" id="level-left">No Audio</div>
+                    </div>
+
+                    <div class="channel-indicator">
+                        <div class="channel-label">RIGHT:</div>
+                        <div class="audio-light" id="light-right"></div>
+                        <div class="audio-level" id="level-right">No Audio</div>
+                    </div>
+
+                    <div id="audio-status" style="color: #999; font-size: 0.85em; margin-top: 10px;">
+                        ⚠️ Waiting for stream...
+                    </div>
+                </div>
+
+                <!-- Broadcast Button -->
+                <button id="broadcast-btn" class="broadcast-button" onclick="startBroadcast()" disabled>
+                    📡 START BROADCAST
+                </button>
+
+                <button id="stop-btn" class="stop-button" onclick="stopBroadcast()" style="display: none;">
+                    ⏹ STOP BROADCAST
+                </button>
+
+                <!-- Live Indicator -->
+                <div id="live-indicator" class="live-indicator">
+                    <h3>
+                        <span class="live-dot"></span>
+                        LIVE on <span id="live-platform">Platform</span>
+                    </h3>
+                    <p id="live-message" style="color: #7f1d1d; margin-bottom: 10px;">
+                        Your stream is now broadcasting!
+                    </p>
+                    <a id="view-stream-link" href="#" target="_blank" class="view-link" style="display: none;">
+                        📺 View Live Stream
+                    </a>
+                    <p id="copy-link" style="color: #7f1d1d; margin-top: 10px; font-size: 0.9em; cursor: pointer;" onclick="copyStreamLink()">
+
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Countdown Modal -->
+    <div id="countdown-modal" class="countdown-modal">
+        <div id="countdown-display" class="countdown-number">5</div>
+    </div>
+
+    <script>
+        let sourceId = null;
+        let streamId = null;
+        let hls = null;
+        let audioContext = null;
+        let audioSource = null;
+        let gainNode = null;
+        let splitter = null;
+        let animationId = null;
+        let config = null;
+
+        // Get source ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        sourceId = urlParams.get('source');
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                config = await response.json();
+                populatePlatforms();
+            } catch (e) {
+                console.error('Error loading config:', e);
+            }
+        }
+
+        function populatePlatforms() {
+            const select = document.getElementById('platform-select');
+
+            const platforms = [
+                {id: 'test', name: '🧪 Test Stream (Local)', key: config.platforms.test?.stream_key, url: config.platforms.test?.channel_url},
+                {id: 'youtube', name: '📺 YouTube', key: config.platforms.youtube?.stream_key, url: config.platforms.youtube?.channel_url},
+                {id: 'facebook', name: '📘 Facebook', key: config.platforms.facebook?.stream_key, url: config.platforms.facebook?.channel_url},
+                {id: 'twitch', name: '🎮 Twitch', key: config.platforms.twitch?.stream_key, url: config.platforms.twitch?.channel_url},
+                {id: 'custom', name: '🔧 Custom RTMP', key: config.platforms.custom?.stream_key, url: null}
+            ];
+
+            platforms.forEach(platform => {
+                const hasKey = platform.key && platform.key.trim() !== '';
+                const suffix = hasKey ? ' ✓' : ' (needs setup)';
+                const option = document.createElement('option');
+                option.value = platform.id;
+                option.textContent = platform.name + suffix;
+                option.disabled = !hasKey;
+                select.appendChild(option);
+            });
+
+            select.addEventListener('change', () => {
+                const broadcastBtn = document.getElementById('broadcast-btn');
+                broadcastBtn.disabled = !select.value;
+            });
+        }
+
+        async function loadPreview() {
+            if (!sourceId) {
+                alert('No source specified');
+                return;
+            }
+
+            // Get source info
+            try {
+                const response = await fetch('/api/sources');
+                const data = await response.json();
+                const source = data.sources.find(s => s.id === sourceId);
+
+                if (source) {
+                    document.getElementById('camera-name').textContent = `📹 ${source.name}`;
+
+                    // For USB cameras, start a preview stream
+                    if (source.type === 'usb') {
+                        await startPreviewStream(source);
+                    } else if (source.hls_url) {
+                        // RTMP streams already have HLS
+                        setupHLSPlayer(source.hls_url);
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading source:', e);
+            }
+        }
+
+        async function startPreviewStream(source) {
+            // Start a local preview stream (camera -> MediaMTX, no broadcast)
+            const deviceName = source.id.split('/').pop(); // e.g., "video0"
+            const previewUrl = `http://${window.location.hostname}:8888/preview_${deviceName}/index.m3u8`;
+
+            try {
+                const response = await fetch('/api/rebroadcast/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        source_id: source.id,
+                        platform: 'preview'  // Special "preview" platform
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    streamId = result.stream_id;
+                    // Wait a moment for stream to start
+                    setTimeout(() => {
+                        setupHLSPlayer(previewUrl);
+                    }, 2000);
+                } else {
+                    console.error('Failed to start preview:', result.error);
+                    // Try to load HLS anyway (stream might already be running)
+                    setupHLSPlayer(previewUrl);
+                }
+            } catch (e) {
+                console.error('Error starting preview:', e);
+                // Try to load HLS anyway
+                setupHLSPlayer(previewUrl);
+            }
+        }
+
+        function setupHLSPlayer(streamUrl) {
+            const video = document.getElementById('preview');
+
+            // Start with video volume at 0 but NOT muted
+            // (muted prevents Web Audio API from analyzing audio)
+            video.muted = false;
+            video.volume = 0;
+
+            if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = streamUrl;
+                video.play().then(() => {
+                    setupAudioAnalyzer();
+                }).catch(e => {
+                    console.log('Autoplay prevented:', e);
+                });
+            } else if (Hls.isSupported()) {
+                hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: false,
+                    maxBufferLength: 10,
+                    maxMaxBufferLength: 20,
+                    liveSyncDurationCount: 3
+                });
+                hls.loadSource(streamUrl);
+                hls.attachMedia(video);
+
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    console.error('HLS Error:', data);
+                    if (data.fatal) {
+                        switch(data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                console.log('Network error, trying to recover...');
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                console.log('Media error, trying to recover...');
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                console.log('Fatal error, destroying HLS...');
+                                hls.destroy();
+                                break;
+                        }
+                    }
+                });
+
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().then(() => {
+                        setupAudioAnalyzer();
+                    }).catch(e => {
+                        console.log('Autoplay prevented:', e);
+                    });
+                });
+            }
+        }
+
+        function setupAudioAnalyzer() {
+            const video = document.getElementById('preview');
+
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                audioSource = audioContext.createMediaElementSource(video);
+
+                // Gain node for volume control (starts at 0 = silent)
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = 0;
+
+                // Create splitter and analyzers for L/R channels
+                splitter = audioContext.createChannelSplitter(2);
+
+                const analyserLeft = audioContext.createAnalyser();
+                const analyserRight = audioContext.createAnalyser();
+                analyserLeft.fftSize = 512;
+                analyserRight.fftSize = 512;
+                analyserLeft.smoothingTimeConstant = 0.3;
+                analyserRight.smoothingTimeConstant = 0.3;
+
+                // Audio routing: source -> splitter -> analyzers
+                //                source -> gain -> destination (for hearing it)
+                audioSource.connect(splitter);
+                splitter.connect(analyserLeft, 0);
+                splitter.connect(analyserRight, 1);
+
+                audioSource.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                document.getElementById('audio-status').textContent = '✅ Audio analyzer active';
+                document.getElementById('audio-status').style.color = '#10b981';
+
+                visualizeAudio(analyserLeft, analyserRight);
+            } catch (e) {
+                console.error('Audio analyzer error:', e);
+                document.getElementById('audio-status').textContent = `⚠️ Audio analyzer error: ${e.message}`;
+            }
+        }
+
+        function visualizeAudio(analyserLeft, analyserRight) {
+            const dataArrayLeft = new Uint8Array(analyserLeft.frequencyBinCount);
+            const dataArrayRight = new Uint8Array(analyserRight.frequencyBinCount);
+
+            function draw() {
+                animationId = requestAnimationFrame(draw);
+
+                analyserLeft.getByteFrequencyData(dataArrayLeft);
+                analyserRight.getByteFrequencyData(dataArrayRight);
+
+                const avgLeft = dataArrayLeft.reduce((a, b) => a + b, 0) / dataArrayLeft.length;
+                const avgRight = dataArrayRight.reduce((a, b) => a + b, 0) / dataArrayRight.length;
+
+                updateIndicator('left', avgLeft);
+                updateIndicator('right', avgRight);
+            }
+
+            draw();
+        }
+
+        function updateIndicator(channel, average) {
+            const light = document.getElementById(`light-${channel}`);
+            const level = document.getElementById(`level-${channel}`);
+            const status = document.getElementById('audio-status');
+
+            if (!light || !level) return;
+
+            const THRESHOLD = 5;  // Threshold for lighting up the indicator
+
+            if (average > THRESHOLD) {
+                light.classList.add('active');
+                level.classList.add('active');
+                level.textContent = `Audio: ${Math.round(average)}`;
+            } else {
+                light.classList.remove('active');
+                level.classList.remove('active');
+                level.textContent = `Level: ${Math.round(average)}`;
+            }
+
+            // Update status to show both channels are being analyzed
+            if (channel === 'right') {  // Update once per frame
+                const leftLevel = Math.round(average);
+                status.textContent = `✅ Analyzing audio (L/R levels updating)`;
+                status.style.color = '#10b981';
+            }
+        }
+
+        async function startBroadcast() {
+            const platform = document.getElementById('platform-select').value;
+
+            if (!platform) {
+                alert('Please select a platform');
+                return;
+            }
+
+            // Show countdown
+            await showCountdown();
+
+            // Start actual broadcast
+            try {
+                const response = await fetch('/api/rebroadcast/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        source_id: sourceId,
+                        platform: platform
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    streamId = result.stream_id;
+                    showLiveIndicator(platform);
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (e) {
+                alert(`❌ Failed: ${e.message}`);
+            }
+        }
+
+        function showCountdown() {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('countdown-modal');
+                const display = document.getElementById('countdown-display');
+
+                modal.classList.add('active');
+
+                let count = 5;
+                display.textContent = count;
+                display.className = 'countdown-number';
+
+                const interval = setInterval(() => {
+                    count--;
+
+                    if (count > 0) {
+                        display.textContent = count;
+                        display.className = 'countdown-number';
+                    } else {
+                        display.textContent = 'LIVE!';
+                        display.className = 'countdown-live';
+
+                        setTimeout(() => {
+                            modal.classList.remove('active');
+                            resolve();
+                        }, 1000);
+
+                        clearInterval(interval);
+                    }
+                }, 1000);
+            });
+        }
+
+        function showLiveIndicator(platform) {
+            const indicator = document.getElementById('live-indicator');
+            const platformName = document.getElementById('live-platform');
+            const viewLink = document.getElementById('view-stream-link');
+            const copyLink = document.getElementById('copy-link');
+            const broadcastBtn = document.getElementById('broadcast-btn');
+            const stopBtn = document.getElementById('stop-btn');
+
+            indicator.classList.add('active');
+            platformName.textContent = platform.toUpperCase();
+            broadcastBtn.style.display = 'none';
+            stopBtn.style.display = 'block';
+
+            // Set up view link based on platform
+            const platformConfig = config.platforms[platform];
+
+            if (platform === 'test') {
+                const testUrl = `http://${window.location.hostname}:8888/test_output/index.m3u8`;
+                viewLink.href = testUrl;
+                viewLink.style.display = 'inline-block';
+                viewLink.textContent = '📺 Open Test Stream in VLC';
+                copyLink.innerHTML = `<code style="font-size: 0.85em;">${testUrl}</code> (Click to copy)`;
+                copyLink.dataset.url = testUrl;
+            } else if (platformConfig && platformConfig.channel_url) {
+                viewLink.href = platformConfig.channel_url;
+                viewLink.style.display = 'inline-block';
+                viewLink.textContent = '📺 View Live Stream';
+                copyLink.textContent = '';
+            } else {
+                viewLink.style.display = 'none';
+                copyLink.textContent = `Go to your ${platform} channel to view the stream`;
+            }
+        }
+
+        function copyStreamLink() {
+            const copyLink = document.getElementById('copy-link');
+            const url = copyLink.dataset.url;
+
+            if (url) {
+                navigator.clipboard.writeText(url).then(() => {
+                    alert('✅ Stream URL copied to clipboard!');
+                });
+            }
+        }
+
+        async function stopBroadcast() {
+            if (!streamId) {
+                alert('No stream running');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/rebroadcast/stop', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ stream_id: streamId })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    streamId = null;
+
+                    const indicator = document.getElementById('live-indicator');
+                    const broadcastBtn = document.getElementById('broadcast-btn');
+                    const stopBtn = document.getElementById('stop-btn');
+
+                    indicator.classList.remove('active');
+                    broadcastBtn.style.display = 'block';
+                    stopBtn.style.display = 'none';
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (e) {
+                alert(`❌ Failed: ${e.message}`);
+            }
+        }
+
+        function toggleMute() {
+            const btn = document.getElementById('unmute-btn');
+
+            if (!gainNode) {
+                alert('Audio system not ready yet, please wait...');
+                return;
+            }
+
+            if (gainNode.gain.value === 0) {
+                // Unmute - set gain to 70%
+                gainNode.gain.value = 0.7;
+                btn.classList.remove('muted');
+                btn.innerHTML = '🔊 MUTE Audio';
+            } else {
+                // Mute - set gain to 0
+                gainNode.gain.value = 0;
+                btn.classList.add('muted');
+                btn.innerHTML = '🔇 UNMUTE to Hear Audio';
+            }
+        }
+
+        // Initialize
+        loadConfig();
+        loadPreview();
+    </script>
+</body>
+</html>
