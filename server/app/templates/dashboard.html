@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            margin-bottom: 20px;
+            color: #fff;
+        }
+        
+        .section {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid #0f3460;
+        }
+        
+        .section h2 {
+            color: #00d4ff;
+            margin-bottom: 16px;
+            font-size: 1.3em;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+        
+        .card {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #1a4d7a;
+            transition: transform 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: #00d4ff;
+        }
+        
+        .card h3 {
+            color: #00d4ff;
+            font-size: 1.1em;
+            margin-bottom: 12px;
+        }
+        
+        .card-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 0.9em;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .label {
+            color: #aaa;
+        }
+        
+        .value {
+            color: #fff;
+            font-weight: 500;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        
+        .status-live {
+            background: #00ff88;
+            color: #000;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-offline {
+            background: #555;
+            color: #aaa;
+        }
+        
+        .status-ready {
+            background: #00d4ff;
+            color: #000;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .preview {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 8px;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 0.9em;
+            overflow: hidden;
+        }
+        
+        .preview video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-top: 12px;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #00d4ff;
+            color: #000;
+        }
+        
+        .btn-primary:hover {
+            background: #00b8e6;
+        }
+        
+        .btn-success {
+            background: #00ff88;
+            color: #000;
+        }
+        
+        .btn-danger {
+            background: #ff4444;
+            color: #fff;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #00d4ff;
+            color: #000;
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
+            transition: transform 0.2s;
+        }
+        
+        .refresh-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .url-display {
+            background: #000;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85em;
+            margin-top: 8px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+        
+        .nav-link {
+            display: inline-block;
+            margin-bottom: 16px;
+            color: #00d4ff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="nav-link">← Back to Control Panel</a>
+        
+        <h1>🎥 Stream Dashboard</h1>
+        
+        <!-- Incoming RTMP Streams -->
+        <div class="section">
+            <h2>📡 Incoming Streams</h2>
+            <div id="incoming-streams" class="grid">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+        
+        <!-- Available Cameras -->
+        <div class="section">
+            <h2>📹 Available Cameras</h2>
+            <div id="cameras" class="grid">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+        
+        <!-- Active Rebroadcasts -->
+        <div class="section">
+            <h2>🔴 Active Rebroadcasts</h2>
+            <div id="active-streams" class="grid">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+    </div>
+    
+    <button class="refresh-btn" onclick="refreshAll()">↻</button>
+    
+    <script>
+        function refreshAll() {
+            loadIncomingStreams();
+            loadCameras();
+            loadActiveStreams();
+        }
+        
+        function loadIncomingStreams() {
+            fetch('/api/streams/incoming')
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('incoming-streams');
+                    const streams = data.streams || [];
+                    
+                    if (streams.length === 0) {
+                        container.innerHTML = '<div class="empty-state">No incoming streams detected.<br>Configure your GoPro to stream to:<br><code>rtmp://' + location.hostname + ':1935/gopro1</code></div>';
+                        return;
+                    }
+                    
+                    container.innerHTML = streams.map(stream => `
+                        <div class="card">
+                            <h3>${stream.name}</h3>
+                            <span class="status-badge status-live">● LIVE</span>
+                            <div class="card-info">
+                                <div class="info-row">
+                                    <span class="label">Readers:</span>
+                                    <span class="value">${stream.readers || 0}</span>
+                                </div>
+                            </div>
+                            <div class="url-display">${stream.url}</div>
+                            <div class="preview">
+                                <video id="preview-${stream.name}" controls autoplay muted playsinline></video>
+                            </div>
+                            <button class="btn btn-success" onclick="startRebroadcast('${stream.name}')">
+                                Rebroadcast to Platform
+                            </button>
+                        </div>
+                    `).join('');
+                    
+                    // Load HLS previews
+                    streams.forEach(stream => {
+                        const video = document.getElementById(`preview-${stream.name}`);
+                        if (video) {
+                            video.src = stream.hls_url + '/index.m3u8';
+                        }
+                    });
+                })
+                .catch(err => {
+                    console.error('Error loading streams:', err);
+                });
+        }
+        
+        function loadCameras() {
+            fetch('/api/cameras')
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('cameras');
+                    const cameras = data.cameras || [];
+                    
+                    if (cameras.length === 0) {
+                        container.innerHTML = '<div class="empty-state">No USB cameras detected.<br>Connect a USB webcam and refresh.</div>';
+                        return;
+                    }
+                    
+                    container.innerHTML = cameras.map(camera => `
+                        <div class="card">
+                            <h3>${camera.name}</h3>
+                            <span class="status-badge status-ready">● READY</span>
+                            <div class="card-info">
+                                <div class="info-row">
+                                    <span class="label">Device:</span>
+                                    <span class="value">${camera.path}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="label">Type:</span>
+                                    <span class="value">${camera.type.toUpperCase()}</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="startCameraStream('${camera.path}')">
+                                Start Streaming
+                            </button>
+                        </div>
+                    `).join('');
+                });
+        }
+        
+        function loadActiveStreams() {
+            fetch('/api/streams/active')
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('active-streams');
+                    const streams = data.streams || [];
+                    
+                    if (streams.length === 0) {
+                        container.innerHTML = '<div class="empty-state">No active rebroadcasts.</div>';
+                        return;
+                    }
+                    
+                    container.innerHTML = streams.map(stream => `
+                        <div class="card">
+                            <h3>${stream.id}</h3>
+                            <span class="status-badge status-live">● BROADCASTING</span>
+                            <div class="card-info">
+                                <div class="info-row">
+                                    <span class="label">Source:</span>
+                                    <span class="value">${stream.source}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="label">Target:</span>
+                                    <span class="value">${stream.target.substring(0, 30)}...</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="label">PID:</span>
+                                    <span class="value">${stream.pid}</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-danger" onclick="stopStream('${stream.id}')">
+                                Stop Stream
+                            </button>
+                        </div>
+                    `).join('');
+                });
+        }
+        
+        function startRebroadcast(streamName) {
+            alert(`To rebroadcast ${streamName}, go to the Control Panel and enter your stream key.`);
+            window.location.href = '/?source=${streamName}';
+        }
+        
+        function startCameraStream(cameraPath) {
+            alert(`To stream from ${cameraPath}, go to the Control Panel and select this camera.`);
+            window.location.href = '/?camera=${cameraPath}';
+        }
+        
+        function stopStream(streamId) {
+            if (confirm('Stop this stream?')) {
+                // Would call API to stop - implementing next
+                alert('Stream stop functionality coming soon!');
+            }
+        }
+        
+        // Initial load
+        refreshAll();
+        
+        // Auto-refresh every 5 seconds
+        setInterval(refreshAll, 5000);
+    </script>
+</body>
+</html>

@@ -217,7 +217,48 @@ def api_stop():
 def service_worker():
     return send_from_directory('static', 'sw.js', mimetype='application/javascript')
 
-if __name__ == '__main__':
+
+# Import additional modules for camera and stream management
+import sys
+sys.path.insert(0, "/home/jeff/stream-control")
+from stream_manager import StreamManager
+from camera_discovery import CameraDiscovery
+
+# Initialize managers
+stream_manager = StreamManager(Path.home() / "stream-control" / "pids")
+camera_discovery = CameraDiscovery()
+
+@app.route("/api/cameras")
+def api_cameras():
+    """Get list of available cameras"""
+    cameras = camera_discovery.discover_usb_cameras()
+    # Filter to actual capture devices (exclude internal Pi devices)
+    usable_cameras = [
+        c for c in cameras 
+        if "C920" in c.get("name", "") or 
+           "webcam" in c.get("name", "").lower() or
+           c.get("path") in ["/dev/video0", "/dev/video1"]
+    ]
+    return jsonify({"cameras": usable_cameras})
+
+@app.route("/api/streams/incoming")
+def api_streams_incoming():
+    """Get list of incoming RTMP streams"""
+    streams = stream_manager.get_incoming_streams()
+    return jsonify({"streams": streams})
+
+@app.route("/api/streams/active")
+def api_streams_active():
+    """Get list of active rebroadcast streams"""
+    streams = stream_manager.get_active_streams()
+    return jsonify({"streams": streams})
+
+@app.route("/dashboard")
+def dashboard():
+    """Stream monitoring dashboard"""
+    return render_template("dashboard.html")
+
+if __name__ == "__main__":
     # Ensure config exists
     if not CONFIG_FILE.exists():
         save_config(DEFAULT_CONFIG)
@@ -229,13 +270,13 @@ if __name__ == '__main__':
     # Print access information
     local_ip = get_local_ip()
     hostname = get_hostname()
-    print("\n" + "="*60)
+    print("\\n" + "="*60)
     print("Stream Control Service Started")
     print("="*60)
     print(f"Access via IP:       http://{local_ip}:5000")
     print(f"Access via mDNS:     http://{hostname}.local:5000")
     print(f"Discovery Port:      {DISCOVERY_PORT}/UDP")
-    print("="*60 + "\n")
+    print("="*60 + "\\n")
     
     # Run on all interfaces so it can be accessed from network
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=False)
