@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stream Dashboard</title>
+    
+    <!-- HLS.js for video playback -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    
     <style>
         * {
             margin: 0;
@@ -44,7 +48,7 @@
         
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
             gap: 16px;
         }
         
@@ -129,12 +133,19 @@
             color: #666;
             font-size: 0.9em;
             overflow: hidden;
+            position: relative;
         }
         
         .preview video {
             width: 100%;
             height: 100%;
             object-fit: contain;
+        }
+        
+        .preview-loading {
+            position: absolute;
+            color: #00d4ff;
+            font-size: 0.9em;
         }
         
         .btn {
@@ -216,6 +227,12 @@
         .nav-link:hover {
             text-decoration: underline;
         }
+        
+        .error-msg {
+            color: #ff4444;
+            font-size: 0.85em;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -252,10 +269,53 @@
     <button class="refresh-btn" onclick="refreshAll()">↻</button>
     
     <script>
+        let videoPlayers = {};
+        
         function refreshAll() {
             loadIncomingStreams();
             loadCameras();
             loadActiveStreams();
+        }
+        
+        function setupHLSPlayer(videoId, streamUrl) {
+            const video = document.getElementById(videoId);
+            if (!video) return;
+            
+            // Use native HLS on Safari
+            if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = streamUrl;
+                video.play().catch(e => console.log('Autoplay prevented:', e));
+            }
+            // Use hls.js on other browsers
+            else if (Hls.isSupported()) {
+                const hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                    backBufferLength: 90
+                });
+                
+                hls.loadSource(streamUrl);
+                hls.attachMedia(video);
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play().catch(e => console.log('Autoplay prevented:', e));
+                });
+                
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    console.error('HLS Error:', data);
+                    if (data.fatal) {
+                        const loadingEl = video.parentElement.querySelector('.preview-loading');
+                        if (loadingEl) {
+                            loadingEl.textContent = '❌ Stream unavailable';
+                            loadingEl.style.color = '#ff4444';
+                        }
+                    }
+                });
+                
+                videoPlayers[videoId] = hls;
+            } else {
+                console.error('HLS not supported in this browser');
+            }
         }
         
         function loadIncomingStreams() {
@@ -270,32 +330,37 @@
                         return;
                     }
                     
-                    container.innerHTML = streams.map(stream => `
-                        <div class="card">
-                            <h3>${stream.name}</h3>
-                            <span class="status-badge status-live">● LIVE</span>
-                            <div class="card-info">
-                                <div class="info-row">
-                                    <span class="label">Readers:</span>
-                                    <span class="value">${stream.readers || 0}</span>
+                    container.innerHTML = streams.map(stream => {
+                        const videoId = `preview-${stream.name}`;
+                        const hlsUrl = `http://${location.hostname}:8888/${stream.name}/index.m3u8`;
+                        
+                        return `
+                            <div class="card">
+                                <h3>${stream.name}</h3>
+                                <span class="status-badge status-live">● LIVE</span>
+                                <div class="card-info">
+                                    <div class="info-row">
+                                        <span class="label">Readers:</span>
+                                        <span class="value">${stream.readers ? stream.readers.length : 0}</span>
+                                    </div>
                                 </div>
+                                <div class="url-display">${stream.url}</div>
+                                <div class="preview">
+                                    <span class="preview-loading">Loading stream...</span>
+                                    <video id="${videoId}" controls muted playsinline></video>
+                                </div>
+                                <button class="btn btn-success" onclick="window.location.href='/?source=${stream.name}'">
+                                    Rebroadcast to Platform
+                                </button>
                             </div>
-                            <div class="url-display">${stream.url}</div>
-                            <div class="preview">
-                                <video id="preview-${stream.name}" controls autoplay muted playsinline></video>
-                            </div>
-                            <button class="btn btn-success" onclick="startRebroadcast('${stream.name}')">
-                                Rebroadcast to Platform
-                            </button>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                     
-                    // Load HLS previews
+                    // Setup HLS players after rendering
                     streams.forEach(stream => {
-                        const video = document.getElementById(`preview-${stream.name}`);
-                        if (video) {
-                            video.src = stream.hls_url + '/index.m3u8';
-                        }
+                        const videoId = `preview-${stream.name}`;
+                        const hlsUrl = `http://${location.hostname}:8888/${stream.name}/index.m3u8`;
+                        setTimeout(() => setupHLSPlayer(videoId, hlsUrl), 100);
                     });
                 })
                 .catch(err => {
@@ -329,7 +394,7 @@
                                     <span class="value">${camera.type.toUpperCase()}</span>
                                 </div>
                             </div>
-                            <button class="btn btn-primary" onclick="startCameraStream('${camera.path}')">
+                            <button class="btn btn-primary" onclick="window.location.href='/?camera=${camera.path}'">
                                 Start Streaming
                             </button>
                         </div>
@@ -356,40 +421,20 @@
                             <div class="card-info">
                                 <div class="info-row">
                                     <span class="label">Source:</span>
-                                    <span class="value">${stream.source}</span>
+                                    <span class="value">${stream.source.substring(stream.source.lastIndexOf('/')+1)}</span>
                                 </div>
                                 <div class="info-row">
                                     <span class="label">Target:</span>
-                                    <span class="value">${stream.target.substring(0, 30)}...</span>
+                                    <span class="value">${stream.target.includes('youtube') ? 'YouTube' : stream.target.includes('facebook') ? 'Facebook' : stream.target.includes('twitch') ? 'Twitch' : 'Custom RTMP'}</span>
                                 </div>
                                 <div class="info-row">
-                                    <span class="label">PID:</span>
-                                    <span class="value">${stream.pid}</span>
+                                    <span class="label">Bitrate:</span>
+                                    <span class="value">${stream.config.bitrate}</span>
                                 </div>
                             </div>
-                            <button class="btn btn-danger" onclick="stopStream('${stream.id}')">
-                                Stop Stream
-                            </button>
                         </div>
                     `).join('');
                 });
-        }
-        
-        function startRebroadcast(streamName) {
-            alert(`To rebroadcast ${streamName}, go to the Control Panel and enter your stream key.`);
-            window.location.href = '/?source=${streamName}';
-        }
-        
-        function startCameraStream(cameraPath) {
-            alert(`To stream from ${cameraPath}, go to the Control Panel and select this camera.`);
-            window.location.href = '/?camera=${cameraPath}';
-        }
-        
-        function stopStream(streamId) {
-            if (confirm('Stop this stream?')) {
-                // Would call API to stop - implementing next
-                alert('Stream stop functionality coming soon!');
-            }
         }
         
         // Initial load
@@ -397,6 +442,13 @@
         
         // Auto-refresh every 5 seconds
         setInterval(refreshAll, 5000);
+        
+        // Cleanup players on page unload
+        window.addEventListener('beforeunload', () => {
+            Object.values(videoPlayers).forEach(hls => {
+                if (hls && hls.destroy) hls.destroy();
+            });
+        });
     </script>
 </body>
 </html>

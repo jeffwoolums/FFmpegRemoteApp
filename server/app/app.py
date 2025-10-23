@@ -280,3 +280,31 @@ if __name__ == "__main__":
     
     # Run on all interfaces so it can be accessed from network
     app.run(host="0.0.0.0", port=5000, debug=False)
+
+@app.route("/api/sources")
+def api_sources():
+    """Get list of all available stream sources"""
+    sources = []
+    
+    # Add USB cameras
+    cameras = camera_discovery.discover_usb_cameras()
+    for cam in cameras:
+        if "C920" in cam.get("name", "") or "webcam" in cam.get("name", "").lower() or cam.get("path") in ["/dev/video0", "/dev/video1"]:
+            sources.append({
+                "id": cam["path"],
+                "name": f"{cam['name']} (USB)",
+                "type": "usb",
+                "path": cam["path"]
+            })
+    
+    # Add incoming RTMP streams
+    streams = stream_manager.get_incoming_streams()
+    for stream in streams:
+        sources.append({
+            "id": f"rtmp://localhost:1935/{stream['name']}",
+            "name": f"{stream['name']} (RTMP Stream)",
+            "type": "rtmp",
+            "url": f"rtmp://localhost:1935/{stream['name']}"
+        })
+    
+    return jsonify({"sources": sources})
