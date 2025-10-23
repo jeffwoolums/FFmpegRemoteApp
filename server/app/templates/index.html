@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Stream Control</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Control your live streams remotely">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Stream">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    
+    <!-- Icons -->
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            padding-top: max(20px, env(safe-area-inset-top));
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        h2 {
+            color: #555;
+            margin-bottom: 16px;
+            font-size: 1.2em;
+        }
+        
+        .install-prompt {
+            background: #f0f9ff;
+            border: 2px solid #0ea5e9;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .install-prompt.show {
+            display: block;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .status.offline {
+            background: #f3f4f6;
+            border-left: 4px solid #6b7280;
+        }
+        
+        .status.live {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #6b7280;
+        }
+        
+        .status.live .status-dot {
+            background: #ef4444;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            margin-top: 8px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
+        
+        .btn-info {
+            background: #0ea5e9;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: #0284c7;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .platform-tabs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .platform-tab {
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            text-align: center;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .platform-tab:hover {
+            border-color: #667eea;
+        }
+        
+        .platform-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+        
+        .alert-error {
+            background: #fef2f2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+        
+        .alert-success {
+            background: #f0fdf4;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+        
+        .alert-info {
+            background: #f0f9ff;
+            color: #075985;
+            border-left: 4px solid #0ea5e9;
+        }
+        
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .info-grid {
+            display: grid;
+            gap: 8px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .info-label {
+            font-weight: 600;
+        }
+        
+        .info-value {
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="install-prompt" class="install-prompt">
+            <strong>📱 Install App</strong>
+            <p style="margin: 8px 0;">Add Stream Control to your home screen for easy access!</p>
+            <button id="btn-install" class="btn btn-info">Install Now</button>
+        </div>
+        
+        <div class="card">
+            <h1>Stream Control Center</h1>
+            <p style="color: #6b7280; margin-bottom: 20px;">Raspberry Pi Live Streaming</p>
+            
+            <div id="status" class="status offline">
+                <div class="status-dot"></div>
+                <strong>Status:</strong> <span id="status-text">Offline</span>
+            </div>
+            
+            <div id="alert" class="hidden"></div>
+            
+            <div id="controls">
+                <h2>Select Platform</h2>
+                <div class="platform-tabs">
+                    <div class="platform-tab active" data-platform="youtube">YouTube</div>
+                    <div class="platform-tab" data-platform="facebook">Facebook</div>
+                    <div class="platform-tab" data-platform="twitch">Twitch</div>
+                    <div class="platform-tab" data-platform="custom">Custom</div>
+                </div>
+                
+                <div id="platform-config">
+                    <!-- Platform config will be inserted here -->
+                </div>
+                
+                <button id="btn-start" class="btn btn-primary">Start Stream</button>
+                <button id="btn-stop" class="btn btn-danger hidden">Stop Stream</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Advanced Settings</h2>
+            <div class="settings-grid">
+                <div class="form-group">
+                    <label>Resolution</label>
+                    <select id="resolution">
+                        <option value="1920x1080">1080p (1920x1080)</option>
+                        <option value="1280x720" selected>720p (1280x720)</option>
+                        <option value="854x480">480p (854x480)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Frame Rate</label>
+                    <select id="framerate">
+                        <option value="60">60 fps</option>
+                        <option value="30" selected>30 fps</option>
+                        <option value="24">24 fps</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Video Bitrate</label>
+                    <select id="bitrate">
+                        <option value="4500k">4500 kbps</option>
+                        <option value="2500k" selected>2500 kbps</option>
+                        <option value="1500k">1500 kbps</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Audio Bitrate</label>
+                    <select id="audio_bitrate">
+                        <option value="192k">192 kbps</option>
+                        <option value="128k" selected>128 kbps</option>
+                        <option value="96k">96 kbps</option>
+                    </select>
+                </div>
+            </div>
+            <button id="btn-save" class="btn btn-success">Save Settings</button>
+        </div>
+        
+        <div class="card">
+            <h2>Network Info</h2>
+            <div class="info-grid" id="network-info">
+                <div class="info-row">
+                    <span class="info-label">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let config = {{ config|tojson }};
+        let currentPlatform = 'youtube';
+        let deferredPrompt;
+        
+        // PWA Install Prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('install-prompt').classList.add('show');
+        });
+        
+        document.getElementById('btn-install')?.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                document.getElementById('install-prompt').classList.remove('show');
+            }
+        });
+        
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js')
+                .then(() => console.log('Service Worker registered'))
+                .catch(err => console.log('Service Worker registration failed:', err));
+        }
+        
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alert.classList.remove('hidden');
+            setTimeout(() => alert.classList.add('hidden'), 5000);
+        }
+        
+        function updateStatus() {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    const statusDiv = document.getElementById('status');
+                    const statusText = document.getElementById('status-text');
+                    const btnStart = document.getElementById('btn-start');
+                    const btnStop = document.getElementById('btn-stop');
+                    
+                    if (data.running) {
+                        statusDiv.className = 'status live';
+                        statusText.textContent = 'LIVE';
+                        btnStart.classList.add('hidden');
+                        btnStop.classList.remove('hidden');
+                    } else {
+                        statusDiv.className = 'status offline';
+                        statusText.textContent = 'Offline';
+                        btnStart.classList.remove('hidden');
+                        btnStop.classList.add('hidden');
+                    }
+                });
+        }
+        
+        function updateNetworkInfo() {
+            fetch('/api/info')
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('network-info');
+                    container.innerHTML = `
+                        <div class="info-row">
+                            <span class="info-label">Hostname:</span>
+                            <span class="info-value">${data.hostname}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">IP Address:</span>
+                            <span class="info-value">${data.ip}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">mDNS:</span>
+                            <span class="info-value">${data.mdns}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Port:</span>
+                            <span class="info-value">${data.port}</span>
+                        </div>
+                    `;
+                });
+        }
+        
+        function renderPlatformConfig() {
+            const container = document.getElementById('platform-config');
+            const platform = config.platforms[currentPlatform];
+            
+            let html = '<div class="form-group">';
+            html += `<label>Stream Key for ${platform.name}</label>`;
+            html += `<input type="password" id="stream-key" value="${platform.stream_key || ''}" placeholder="Enter your stream key">`;
+            html += '</div>';
+            
+            if (currentPlatform === 'custom') {
+                html += '<div class="form-group">';
+                html += '<label>RTMP URL</label>';
+                html += `<input type="text" id="rtmp-url" value="${platform.rtmp_url || ''}" placeholder="rtmp://...">`;
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        // Platform tabs
+        document.querySelectorAll('.platform-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentPlatform = tab.dataset.platform;
+                renderPlatformConfig();
+            });
+        });
+        
+        // Start stream
+        document.getElementById('btn-start').addEventListener('click', () => {
+            const streamKey = document.getElementById('stream-key').value;
+            if (!streamKey) {
+                showAlert('Please enter a stream key', 'error');
+                return;
+            }
+            
+            // Update config
+            config.platforms[currentPlatform].stream_key = streamKey;
+            if (currentPlatform === 'custom') {
+                const rtmpUrl = document.getElementById('rtmp-url').value;
+                if (!rtmpUrl) {
+                    showAlert('Please enter RTMP URL', 'error');
+                    return;
+                }
+                config.platforms[currentPlatform].rtmp_url = rtmpUrl;
+            }
+            
+            // Save config and start
+            fetch('/api/config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(config)
+            })
+            .then(() => fetch('/api/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({platform: currentPlatform})
+            }))
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('Stream started successfully!', 'success');
+                    updateStatus();
+                } else {
+                    showAlert('Error: ' + data.error, 'error');
+                }
+            });
+        });
+        
+        // Stop stream
+        document.getElementById('btn-stop').addEventListener('click', () => {
+            fetch('/api/stop', {method: 'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('Stream stopped', 'success');
+                        updateStatus();
+                    } else {
+                        showAlert('Error: ' + data.error, 'error');
+                    }
+                });
+        });
+        
+        // Save settings
+        document.getElementById('btn-save').addEventListener('click', () => {
+            config.resolution = document.getElementById('resolution').value;
+            config.framerate = document.getElementById('framerate').value;
+            config.bitrate = document.getElementById('bitrate').value;
+            config.audio_bitrate = document.getElementById('audio_bitrate').value;
+            
+            fetch('/api/config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(config)
+            })
+            .then(() => {
+                showAlert('Settings saved!', 'success');
+            });
+        });
+        
+        // Initialize
+        renderPlatformConfig();
+        updateStatus();
+        updateNetworkInfo();
+        setInterval(updateStatus, 3000);
+        
+        // Load settings
+        document.getElementById('resolution').value = config.resolution;
+        document.getElementById('framerate').value = config.framerate;
+        document.getElementById('bitrate').value = config.bitrate;
+        document.getElementById('audio_bitrate').value = config.audio_bitrate;
+    </script>
+</body>
+</html>
