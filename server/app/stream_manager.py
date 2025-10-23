@@ -52,7 +52,7 @@ class StreamManager:
                 for item in data.get('items', []):
                     path_name = item.get('name', '')
                     # Check if it has active readers or publishers
-                    if item.get('sourceReady'):
+                    if item.get('ready'):
                         incoming.append({
                             'name': path_name,
                             'url': f'rtmp://localhost:1935/{path_name}',
