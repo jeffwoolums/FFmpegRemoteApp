@@ -11,13 +11,126 @@ import signal
 import requests
 from pathlib import Path
 from typing import Dict, List
+from datetime import datetime
 
 class StreamManager:
     def __init__(self, pid_dir):
         self.pid_dir = Path(pid_dir)
         self.pid_dir.mkdir(exist_ok=True)
         self.mediamtx_api = "http://127.0.0.1:9997/v3"
-    
+        self.gps_data_file = Path('/tmp/gps_data.json')
+
+    def get_gps_data(self) -> Dict:
+        """Read current GPS data from file"""
+        if self.gps_data_file.exists():
+            try:
+                with open(self.gps_data_file, 'r') as f:
+                    return json.load(f)
+            except:
+                pass
+        return {
+            'has_fix': False,
+            'speed_mph': 0,
+            'speed_kph': 0,
+            'latitude': 0,
+            'longitude': 0,
+            'altitude': 0,
+            'heading_cardinal': 'N',
+            'location_name': 'No GPS'
+        }
+
+    def build_overlay_filter(self, config: Dict) -> str:
+        """Build FFmpeg drawtext filter for overlays based on config and GPS data"""
+        overlays = config.get('overlays', {})
+
+        if not overlays.get('enabled', False):
+            return None
+
+        template = overlays.get('template', 'minimal')
+        font_size = overlays.get('font_size', 24)
+        font_color = overlays.get('font_color', 'white')
+
+        filters = []
+        y_pos = 10  # Starting Y position
+
+        # Custom title at top
+        custom_title = overlays.get('custom_title', '')
+        if custom_title:
+            filters.append(
+                f"drawtext=text='{custom_title}':x=10:y={y_pos}:"
+                f"fontsize={font_size + 4}:fontcolor={font_color}:box=1:boxcolor=black@0.7:boxborderw=5"
+            )
+            y_pos += font_size + 15
+
+        # Build overlay text based on template and enabled elements
+        overlay_lines = []
+
+        if template == 'minimal':
+            if overlays.get('show_speed'):
+                overlay_lines.append("Speed\\: %{eif\\:0\\:d} MPH")  # Will be updated by GPS script
+            if overlays.get('show_location'):
+                overlay_lines.append("Location\\: GPS Data")
+
+        elif template == 'racing':
+            if overlays.get('show_speed'):
+                # Large speed display
+                filters.append(
+                    f"drawtext=text='SPEED':x=10:y={y_pos}:"
+                    f"fontsize={font_size}:fontcolor=gray"
+                )
+                y_pos += font_size + 5
+                filters.append(
+                    f"drawtext=text='-- MPH':x=10:y={y_pos}:"
+                    f"fontsize={font_size * 2}:fontcolor=red:box=1:boxcolor=black@0.8:boxborderw=8"
+                )
+                y_pos += (font_size * 2) + 15
+            if overlays.get('show_heading'):
+                overlay_lines.append("Heading\\: N")
+
+        elif template == 'adventure':
+            if overlays.get('show_location'):
+                overlay_lines.append("Location\\: Acquiring...")
+            if overlays.get('show_elevation'):
+                overlay_lines.append("Elevation\\: -- ft")
+            if overlays.get('show_speed'):
+                overlay_lines.append("Speed\\: -- MPH")
+            if overlays.get('show_heading'):
+                overlay_lines.append("Heading\\: --")
+
+        elif template == 'professional':
+            # Full telemetry layout
+            if overlays.get('show_speed'):
+                overlay_lines.append("SPD\\: -- MPH")
+            if overlays.get('show_elevation'):
+                overlay_lines.append("ALT\\: -- ft")
+            if overlays.get('show_heading'):
+                overlay_lines.append("HDG\\: --")
+            if overlays.get('show_location'):
+                overlay_lines.append("GPS\\: --.---- N, --.---- W")
+            if overlays.get('show_time'):
+                overlay_lines.append("TIME\\: --\\:--\\:--")
+
+        # Add each line as a separate drawtext filter
+        for line in overlay_lines:
+            filters.append(
+                f"drawtext=text='{line}':x=10:y={y_pos}:"
+                f"fontsize={font_size}:fontcolor={font_color}:box=1:boxcolor=black@0.7:boxborderw=5"
+            )
+            y_pos += font_size + 10
+
+        # Add time display if enabled (bottom right)
+        if overlays.get('show_time') and template != 'professional':
+            filters.append(
+                f"drawtext=text='%{{localtime}}':x=w-tw-10:y=h-th-10:"
+                f"fontsize={font_size - 4}:fontcolor={font_color}:box=1:boxcolor=black@0.7:boxborderw=5"
+            )
+
+        if not filters:
+            return None
+
+        # Join all filters with comma
+        return ','.join(filters)
+
     def get_active_streams(self) -> List[Dict]:
         """Get list of active rebroadcast streams"""
         streams = []
@@ -110,6 +223,14 @@ class StreamManager:
                 '-i', source_url,
                 '-f', 'alsa',
                 '-i', config.get('audio_device', 'hw:2,0'),
+            ]
+
+            # Add overlay filter if enabled
+            overlay_filter = self.build_overlay_filter(config)
+            if overlay_filter:
+                cmd.extend(['-vf', overlay_filter])
+
+            cmd.extend([
                 '-c:v', 'libx264',
                 '-preset', config.get('preset', 'veryfast'),
                 '-b:v', config.get('bitrate', '2500k'),
@@ -123,7 +244,7 @@ class StreamManager:
                 '-ar', '44100',
                 '-f', 'flv',
                 target_url
-            ]
+            ])
         
         try:
             # Start ffmpeg process

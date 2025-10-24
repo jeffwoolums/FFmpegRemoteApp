@@ -1,0 +1,20 @@
+[Unit]
+Description=GPS Reader for Stream Overlays
+After=network.target gpsd.service
+Wants=gpsd.service
+
+[Service]
+Type=simple
+User=jeff
+WorkingDirectory=/home/jeff/stream-control
+ExecStart=/usr/bin/python3 /home/jeff/stream-control/gps_reader.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gps-reader
+
+[Install]
+WantedBy=multi-user.target

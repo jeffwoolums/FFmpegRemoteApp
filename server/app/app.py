@@ -46,7 +46,24 @@ DEFAULT_CONFIG = {
     'framerate': '30',
     'bitrate': '2500k',
     'audio_bitrate': '128k',
-    'audio_gain': 0.5  # 50% volume to reduce background noise
+    'audio_gain': 0.5,  # 50% volume to reduce background noise
+    'overlays': {
+        'enabled': False,
+        'template': 'minimal',  # minimal, racing, adventure, professional
+        'show_speed': True,
+        'show_location': True,
+        'show_elevation': True,
+        'show_time': True,
+        'show_weather': False,
+        'show_heading': True,
+        'speed_unit': 'mph',  # mph or kph
+        'custom_title': '',
+        'logo_path': '',
+        'weather_api_key': '',
+        'font_size': 24,
+        'font_color': 'white',
+        'background_opacity': 0.7
+    }
 }
 
 def get_local_ip():
@@ -185,6 +202,30 @@ def preview():
 @app.route('/settings')
 def settings():
     return render_template('settings.html')
+
+@app.route('/overlays')
+def overlays():
+    return render_template('overlays.html')
+
+@app.route('/api/gps')
+def api_gps():
+    """Get current GPS data"""
+    gps_file = Path('/tmp/gps_data.json')
+    if gps_file.exists():
+        try:
+            with open(gps_file, 'r') as f:
+                return jsonify(json.load(f))
+        except:
+            pass
+    return jsonify({
+        'has_fix': False,
+        'latitude': 0,
+        'longitude': 0,
+        'speed_mph': 0,
+        'altitude': 0,
+        'satellites': 0,
+        'location_name': 'GPS Not Available'
+    })
 
 @app.route('/api/config', methods=['GET', 'POST'])
 def api_config():

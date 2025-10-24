@@ -1,0 +1,12 @@
+{
+  "example_track": {
+    "name": "Example Race Track",
+    "location": "City, State",
+    "length_miles": 2.5,
+    "turns": 12,
+    "kml_file": "kml/example_track.kml",
+    "gpx_file": "gpx/example_track.gpx",
+    "image_file": "images/example_track.png",
+    "notes": "Add your actual track data here"
+  }
+}

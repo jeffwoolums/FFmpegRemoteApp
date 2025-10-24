@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Stream Overlays - Stream Control</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            padding-top: max(20px, env(safe-area-inset-top));
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 0.95em;
+        }
+
+        .nav-link {
+            display: inline-block;
+            margin-top: 12px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            color: #333;
+            font-size: 1.3em;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toggle-section {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .toggle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .toggle-label {
+            font-weight: 600;
+            color: #333;
+            font-size: 1em;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 28px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 28px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #10b981;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(22px);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.95em;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 6px;
+            color: #999;
+            font-size: 0.85em;
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .template-option {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .template-option:hover {
+            border-color: #667eea;
+            background: #f0f9ff;
+        }
+
+        .template-option.selected {
+            border-color: #667eea;
+            background: #dbeafe;
+        }
+
+        .template-icon {
+            font-size: 2em;
+            margin-bottom: 8px;
+        }
+
+        .template-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .template-desc {
+            color: #666;
+            font-size: 0.85em;
+        }
+
+        .preview-box {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+            color: white;
+            font-family: monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+            min-height: 200px;
+        }
+
+        .gps-status {
+            background: #f0f9ff;
+            border: 2px solid #0ea5e9;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .gps-status h3 {
+            color: #0c4a6e;
+            margin-bottom: 12px;
+            font-size: 1em;
+        }
+
+        .gps-data {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .gps-item {
+            color: #075985;
+            font-size: 0.9em;
+        }
+
+        .gps-item strong {
+            color: #0c4a6e;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .status-indicator.green {
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+
+        .status-indicator.red {
+            background: #ef4444;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .save-section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .success-message {
+            display: none;
+            background: #d1fae5;
+            color: #065f46;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Stream Overlays & GPS</h1>
+            <p class="subtitle">Configure GPS telemetry, weather, and custom overlays for your streams</p>
+            <a href="/" class="nav-link">← Back to Stream Control</a>
+        </div>
+
+        <div id="success-message" class="success-message">
+            ✅ Overlay settings saved successfully!
+        </div>
+
+        <div class="grid">
+            <!-- LEFT SIDE: Configuration -->
+            <div>
+                <!-- GPS Status -->
+                <div class="card">
+                    <h2>🛰️ GPS Status</h2>
+                    <div class="gps-status">
+                        <h3>
+                            <span class="status-indicator" id="gps-status-light"></span>
+                            <span id="gps-status-text">Checking GPS...</span>
+                        </h3>
+                        <div class="gps-data" id="gps-data">
+                            <div class="gps-item"><strong>Satellites:</strong> <span id="gps-sats">--</span></div>
+                            <div class="gps-item"><strong>Speed:</strong> <span id="gps-speed">-- MPH</span></div>
+                            <div class="gps-item"><strong>Altitude:</strong> <span id="gps-alt">-- ft</span></div>
+                            <div class="gps-item"><strong>Location:</strong> <span id="gps-loc">--</span></div>
+                        </div>
+                    </div>
+                    <small style="color: #666;">
+                        ℹ️ GPS data updates automatically. Ensure VK-162 is plugged in and has clear sky view.
+                    </small>
+                </div>
+
+                <!-- Master Toggle -->
+                <div class="card">
+                    <h2>⚙️ Overlay Settings</h2>
+
+                    <div class="toggle-section">
+                        <div class="toggle-header">
+                            <span class="toggle-label">Enable Stream Overlays</span>
+                            <label class="switch">
+                                <input type="checkbox" id="overlays-enabled">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <small style="color: #666;">Master switch for all overlay elements</small>
+                    </div>
+
+                    <!-- Template Selection -->
+                    <div class="form-group">
+                        <label>Overlay Template</label>
+                        <div class="template-grid">
+                            <div class="template-option" data-template="minimal">
+                                <div class="template-icon">📊</div>
+                                <div class="template-name">Minimal</div>
+                                <div class="template-desc">Clean & simple</div>
+                            </div>
+                            <div class="template-option" data-template="racing">
+                                <div class="template-icon">🏁</div>
+                                <div class="template-name">Racing</div>
+                                <div class="template-desc">Speed focused</div>
+                            </div>
+                            <div class="template-option" data-template="adventure">
+                                <div class="template-icon">🏔️</div>
+                                <div class="template-name">Adventure</div>
+                                <div class="template-desc">Location & elevation</div>
+                            </div>
+                            <div class="template-option" data-template="professional">
+                                <div class="template-icon">📺</div>
+                                <div class="template-name">Professional</div>
+                                <div class="template-desc">Full telemetry</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Custom Title -->
+                    <div class="form-group">
+                        <label>Custom Title/Message</label>
+                        <input type="text" id="custom-title" placeholder="e.g., Live from California">
+                        <small>Optional text overlay at the top of your stream</small>
+                    </div>
+
+                    <!-- Speed Unit -->
+                    <div class="form-group">
+                        <label>Speed Unit</label>
+                        <select id="speed-unit">
+                            <option value="mph">MPH (Miles per Hour)</option>
+                            <option value="kph">KPH (Kilometers per Hour)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Data Elements -->
+                <div class="card">
+                    <h2>📋 Data Elements</h2>
+
+                    <div class="toggle-section">
+                        <div class="toggle-header">
+                            <span class="toggle-label">🚗 Speed</span>
+                            <label class="switch">
+                                <input type="checkbox" id="show-speed" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="toggle-section">
+                        <div class="toggle-header">
+                            <span class="toggle-label">📍 Location</span>
+                            <label class="switch">
+                                <input type="checkbox" id="show-location" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="toggle-section">
+                        <div class="toggle-header">
+                            <span class="toggle-label">⛰️ Elevation</span>
+                            <label class="switch">
+                                <input type="checkbox" id="show-elevation" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="toggle-section">
+                        <div class="toggle-header">
+                            <span class="toggle-label">🧭 Heading/Direction</span>
+                            <label class="switch">
+                                <input type="checkbox" id="show-heading" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="toggle-section">
+                        <div class="toggle-header">
+                            <span class="toggle-label">⏱️ Time</span>
+                            <label class="switch">
+                                <input type="checkbox" id="show-time" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="toggle-section">
+                        <div class="toggle-header">
+                            <span class="toggle-label">🌤️ Weather (requires API key)</span>
+                            <label class="switch">
+                                <input type="checkbox" id="show-weather">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group" style="margin-top: 12px;">
+                            <input type="text" id="weather-api-key" placeholder="OpenWeatherMap API Key">
+                            <small>Get free API key at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org</a></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT SIDE: Preview -->
+            <div>
+                <div class="card">
+                    <h2>👁️ Overlay Preview</h2>
+                    <div class="preview-box" id="overlay-preview">
+                        <div id="preview-content">
+                            Loading preview...
+                        </div>
+                    </div>
+                    <small style="color: #666; display: block; margin-top: 12px;">
+                        ℹ️ This shows how overlays will appear on your stream
+                    </small>
+                </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <h2>ℹ️ Setup Instructions</h2>
+                    <ol style="color: #555; line-height: 1.8;">
+                        <li><strong>Plug in VK-162 GPS:</strong> Connect USB GPS dongle to Raspberry Pi</li>
+                        <li><strong>Install GPS software:</strong> Run setup script on Pi:
+                            <code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px; display: block; margin: 8px 0;">bash ~/stream-control/setup_gps.sh</code>
+                        </li>
+                        <li><strong>Start GPS reader:</strong> The GPS data service will start automatically</li>
+                        <li><strong>Wait for GPS lock:</strong> Takes 30-60 seconds outdoors with clear sky view</li>
+                        <li><strong>Configure overlays:</strong> Enable desired data elements above</li>
+                        <li><strong>Save settings:</strong> Click "Save Overlay Settings" below</li>
+                        <li><strong>Start streaming:</strong> Overlays will automatically appear on your stream!</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="save-section">
+            <button class="btn btn-primary" onclick="saveSettings()">💾 Save Overlay Settings</button>
+        </div>
+    </div>
+
+    <script>
+        let config = null;
+        let gpsUpdateInterval = null;
+        let selectedTemplate = 'minimal';
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                config = await response.json();
+
+                // Load overlay settings
+                const overlays = config.overlays || {};
+                document.getElementById('overlays-enabled').checked = overlays.enabled || false;
+                document.getElementById('show-speed').checked = overlays.show_speed !== false;
+                document.getElementById('show-location').checked = overlays.show_location !== false;
+                document.getElementById('show-elevation').checked = overlays.show_elevation !== false;
+                document.getElementById('show-heading').checked = overlays.show_heading !== false;
+                document.getElementById('show-time').checked = overlays.show_time !== false;
+                document.getElementById('show-weather').checked = overlays.show_weather || false;
+                document.getElementById('custom-title').value = overlays.custom_title || '';
+                document.getElementById('speed-unit').value = overlays.speed_unit || 'mph';
+                document.getElementById('weather-api-key').value = overlays.weather_api_key || '';
+
+                selectedTemplate = overlays.template || 'minimal';
+                document.querySelectorAll('.template-option').forEach(opt => {
+                    if (opt.dataset.template === selectedTemplate) {
+                        opt.classList.add('selected');
+                    }
+                });
+
+                updatePreview();
+            } catch (e) {
+                console.error('Error loading config:', e);
+            }
+        }
+
+        async function updateGPS() {
+            try {
+                const response = await fetch('/api/gps');
+                const data = await response.json();
+
+                const statusLight = document.getElementById('gps-status-light');
+                const statusText = document.getElementById('gps-status-text');
+
+                if (data.has_fix) {
+                    statusLight.className = 'status-indicator green';
+                    statusText.textContent = 'GPS Locked';
+                    statusLight.classList.add('green');
+
+                    document.getElementById('gps-sats').textContent = data.satellites || 0;
+                    document.getElementById('gps-speed').textContent = (data.speed_mph || 0).toFixed(1) + ' MPH';
+                    document.getElementById('gps-alt').textContent = (data.altitude || 0).toFixed(0) + ' ft';
+                    document.getElementById('gps-loc').textContent = data.location_name || 'Unknown';
+                } else {
+                    statusLight.className = 'status-indicator red';
+                    statusText.textContent = 'No GPS Fix';
+                    document.getElementById('gps-sats').textContent = data.satellites || 0;
+                }
+
+                updatePreview();
+            } catch (e) {
+                console.error('Error updating GPS:', e);
+                document.getElementById('gps-status-text').textContent = 'GPS Not Available';
+            }
+        }
+
+        async function updatePreview() {
+            const enabled = document.getElementById('overlays-enabled').checked;
+            const showSpeed = document.getElementById('show-speed').checked;
+            const showLocation = document.getElementById('show-location').checked;
+            const showElevation = document.getElementById('show-elevation').checked;
+            const showHeading = document.getElementById('show-heading').checked;
+            const showTime = document.getElementById('show-time').checked;
+            const customTitle = document.getElementById('custom-title').value;
+
+            let preview = '';
+
+            if (!enabled) {
+                preview = '<span style="color: #666;">Overlays disabled</span>';
+            } else {
+                if (customTitle) {
+                    preview += `<div style="margin-bottom: 20px; font-size: 1.2em; font-weight: bold;">📍 ${customTitle}</div>`;
+                }
+
+                if (selectedTemplate === 'minimal') {
+                    if (showSpeed) preview += '🚗 SPEED: <span style="color: #10b981;">45 MPH</span><br>';
+                    if (showLocation) preview += '📍 LOCATION: <span style="color: #60a5fa;">Big Sur, CA</span><br>';
+                } else if (selectedTemplate === 'racing') {
+                    preview += '<div style="font-size: 2em; color: #ef4444; font-weight: bold;">45 <span style="font-size: 0.5em;">MPH</span></div>';
+                    if (showHeading) preview += '🧭 HEADING: <span style="color: #fbbf24;">NW</span><br>';
+                } else if (selectedTemplate === 'adventure') {
+                    if (showLocation) preview += '📍 <span style="color: #60a5fa;">Big Sur, California</span><br>';
+                    if (showElevation) preview += '⛰️  ELEVATION: <span style="color: #a78bfa;">1,245 ft</span><br>';
+                    if (showSpeed) preview += '🚗 SPEED: <span style="color: #10b981;">45 MPH</span><br>';
+                    if (showHeading) preview += '🧭 HEADING: <span style="color: #fbbf24;">NW (315°)</span><br>';
+                } else if (selectedTemplate === 'professional') {
+                    preview += '<div style="background: rgba(0,0,0,0.7); padding: 12px; border-radius: 6px;">';
+                    if (customTitle) preview += `<div style="font-weight: bold; margin-bottom: 8px;">${customTitle}</div>`;
+                    if (showSpeed) preview += '🚗 45 MPH  ';
+                    if (showElevation) preview += '⛰️  1,245 ft  ';
+                    if (showHeading) preview += '🧭 NW<br>';
+                    if (showLocation) preview += '📍 37.8199° N, 122.4783° W<br>';
+                    if (showTime) preview += '⏱️  2:45:30 PM PST';
+                    preview += '</div>';
+                }
+            }
+
+            document.getElementById('preview-content').innerHTML = preview || '<span style="color: #666;">No overlay elements selected</span>';
+        }
+
+        async function saveSettings() {
+            config.overlays = {
+                enabled: document.getElementById('overlays-enabled').checked,
+                template: selectedTemplate,
+                show_speed: document.getElementById('show-speed').checked,
+                show_location: document.getElementById('show-location').checked,
+                show_elevation: document.getElementById('show-elevation').checked,
+                show_heading: document.getElementById('show-heading').checked,
+                show_time: document.getElementById('show-time').checked,
+                show_weather: document.getElementById('show-weather').checked,
+                speed_unit: document.getElementById('speed-unit').value,
+                custom_title: document.getElementById('custom-title').value,
+                weather_api_key: document.getElementById('weather-api-key').value,
+                font_size: 24,
+                font_color: 'white',
+                background_opacity: 0.7
+            };
+
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const msg = document.getElementById('success-message');
+                    msg.classList.add('show');
+                    setTimeout(() => msg.classList.remove('show'), 3000);
+                } else {
+                    alert('❌ Error saving settings');
+                }
+            } catch (e) {
+                console.error('Error saving settings:', e);
+                alert('❌ Error saving settings');
+            }
+        }
+
+        // Template selection
+        document.querySelectorAll('.template-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.template-option').forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+                selectedTemplate = option.dataset.template;
+                updatePreview();
+            });
+        });
+
+        // Update preview when settings change
+        document.querySelectorAll('input[type="checkbox"], input[type="text"], select').forEach(elem => {
+            elem.addEventListener('change', updatePreview);
+            elem.addEventListener('input', updatePreview);
+        });
+
+        // Initialize
+        loadConfig();
+        updateGPS();
+        gpsUpdateInterval = setInterval(updateGPS, 2000); // Update GPS every 2 seconds
+    </script>
+</body>
+</html>
