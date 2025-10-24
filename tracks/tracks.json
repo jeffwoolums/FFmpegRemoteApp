@@ -1,12 +1,15 @@
 {
-  "example_track": {
-    "name": "Example Race Track",
-    "location": "City, State",
-    "length_miles": 2.5,
-    "turns": 12,
-    "kml_file": "kml/example_track.kml",
-    "gpx_file": "gpx/example_track.gpx",
-    "image_file": "images/example_track.png",
-    "notes": "Add your actual track data here"
+  "baja1000_2025": {
+    "name": "Baja 1000 - 2025 Course",
+    "location": "Ensenada to La Paz, Baja California, Mexico",
+    "length_miles": 1000,
+    "type": "Off-Road Point-to-Point",
+    "year": 2025,
+    "kml_file": "kml/25B1K-PRUN-PROC-KML-10.22.kml",
+    "kml_file_alt": "kml/25B1K-PRUN-SPTM-KML-10.22.kml",
+    "gpx_file": "gpx/25B1K-PRUN-PROC-GPX-10.22.GPX",
+    "image_file": "images/25-b1000-map-final-1-1.jpg",
+    "image_file_alt": "images/Baja1000_2015_Small_v6.jpg",
+    "notes": "SCORE International Baja 1000 - World's most prestigious off-road race"
   }
 }
