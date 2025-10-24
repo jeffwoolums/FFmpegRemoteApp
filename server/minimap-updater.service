@@ -1,0 +1,20 @@
+[Unit]
+Description=Live Mini-Map Updater for Stream Overlays
+After=network.target gps-reader.service
+Wants=gps-reader.service
+
+[Service]
+Type=simple
+User=jeff
+WorkingDirectory=/home/jeff/stream-control
+ExecStart=/usr/bin/python3 /home/jeff/stream-control/minimap_updater.py /home/jeff/stream-control/tracks 1.0
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=minimap-updater
+
+[Install]
+WantedBy=multi-user.target

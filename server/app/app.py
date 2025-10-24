@@ -62,7 +62,11 @@ DEFAULT_CONFIG = {
         'weather_api_key': '',
         'font_size': 24,
         'font_color': 'white',
-        'background_opacity': 0.7
+        'background_opacity': 0.7,
+        'minimap_enabled': False,
+        'minimap_track': 'baja1000_2025',
+        'minimap_position': 'bottom-right',  # top-left, top-right, bottom-left, bottom-right
+        'minimap_size': 400
     }
 }
 

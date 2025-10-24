@@ -39,12 +39,12 @@ class StreamManager:
             'location_name': 'No GPS'
         }
 
-    def build_overlay_filter(self, config: Dict) -> str:
-        """Build FFmpeg drawtext filter for overlays based on config and GPS data"""
+    def build_overlay_filter(self, config: Dict) -> Dict:
+        """Build FFmpeg overlay filters (text and image) based on config and GPS data"""
         overlays = config.get('overlays', {})
 
         if not overlays.get('enabled', False):
-            return None
+            return {'text_filters': None, 'has_minimap': False, 'minimap_position': 'bottom-right'}
 
         template = overlays.get('template', 'minimal')
         font_size = overlays.get('font_size', 24)
@@ -67,7 +67,7 @@ class StreamManager:
 
         if template == 'minimal':
             if overlays.get('show_speed'):
-                overlay_lines.append("Speed\\: %{eif\\:0\\:d} MPH")  # Will be updated by GPS script
+                overlay_lines.append("Speed\\: %{eif\\:0\\:d} MPH")
             if overlays.get('show_location'):
                 overlay_lines.append("Location\\: GPS Data")
 
@@ -125,11 +125,18 @@ class StreamManager:
                 f"fontsize={font_size - 4}:fontcolor={font_color}:box=1:boxcolor=black@0.7:boxborderw=5"
             )
 
-        if not filters:
-            return None
+        text_filter = ','.join(filters) if filters else None
 
-        # Join all filters with comma
-        return ','.join(filters)
+        # Check if mini-map is enabled
+        has_minimap = overlays.get('minimap_enabled', False)
+        minimap_position = overlays.get('minimap_position', 'bottom-right')
+
+        return {
+            'text_filters': text_filter,
+            'has_minimap': has_minimap,
+            'minimap_position': minimap_position,
+            'minimap_size': overlays.get('minimap_size', 400)
+        }
 
     def get_active_streams(self) -> List[Dict]:
         """Get list of active rebroadcast streams"""
@@ -225,10 +232,54 @@ class StreamManager:
                 '-i', config.get('audio_device', 'hw:2,0'),
             ]
 
-            # Add overlay filter if enabled
-            overlay_filter = self.build_overlay_filter(config)
-            if overlay_filter:
-                cmd.extend(['-vf', overlay_filter])
+            # Build overlay filters
+            overlay_data = self.build_overlay_filter(config)
+            text_filters = overlay_data['text_filters']
+            has_minimap = overlay_data['has_minimap']
+            minimap_position = overlay_data['minimap_position']
+
+            # Add mini-map as additional input if enabled
+            minimap_file = Path('/tmp/minimap_overlay.png')
+            if has_minimap and minimap_file.exists():
+                cmd.extend(['-loop', '1', '-i', str(minimap_file)])
+
+            # Build filter complex for overlays
+            if has_minimap and text_filters:
+                # Both mini-map and text overlays
+                # Calculate minimap position
+                if minimap_position == 'bottom-right':
+                    overlay_pos = 'x=W-w-10:y=H-h-10'
+                elif minimap_position == 'bottom-left':
+                    overlay_pos = 'x=10:y=H-h-10'
+                elif minimap_position == 'top-right':
+                    overlay_pos = 'x=W-w-10:y=10'
+                elif minimap_position == 'top-left':
+                    overlay_pos = 'x=10:y=10'
+                else:
+                    overlay_pos = 'x=W-w-10:y=H-h-10'
+
+                filter_complex = f"[0:v][2:v]overlay={overlay_pos}[vtmp];[vtmp]{text_filters}[v]"
+                cmd.extend(['-filter_complex', filter_complex, '-map', '[v]', '-map', '1:a'])
+
+            elif has_minimap:
+                # Only mini-map overlay
+                if minimap_position == 'bottom-right':
+                    overlay_pos = 'x=W-w-10:y=H-h-10'
+                elif minimap_position == 'bottom-left':
+                    overlay_pos = 'x=10:y=H-h-10'
+                elif minimap_position == 'top-right':
+                    overlay_pos = 'x=W-w-10:y=10'
+                elif minimap_position == 'top-left':
+                    overlay_pos = 'x=10:y=10'
+                else:
+                    overlay_pos = 'x=W-w-10:y=H-h-10'
+
+                filter_complex = f"[0:v][2:v]overlay={overlay_pos}"
+                cmd.extend(['-filter_complex', filter_complex, '-map', '1:a'])
+
+            elif text_filters:
+                # Only text overlays
+                cmd.extend(['-vf', text_filters])
 
             cmd.extend([
                 '-c:v', 'libx264',

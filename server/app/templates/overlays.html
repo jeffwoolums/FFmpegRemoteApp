@@ -489,6 +489,51 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Mini-Map Settings -->
+                <div class="card">
+                    <h2>🗺️ Track Mini-Map</h2>
+
+                    <div class="toggle-section">
+                        <div class="toggle-header">
+                            <span class="toggle-label">Enable Track Mini-Map</span>
+                            <label class="switch">
+                                <input type="checkbox" id="minimap-enabled">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <small style="color: #666;">Show live GPS position on track map during stream</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mini-Map Position</label>
+                        <select id="minimap-position">
+                            <option value="bottom-right">Bottom Right</option>
+                            <option value="bottom-left">Bottom Left</option>
+                            <option value="top-right">Top Right</option>
+                            <option value="top-left">Top Left</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mini-Map Size</label>
+                        <select id="minimap-size">
+                            <option value="300">Small (300px)</option>
+                            <option value="400" selected>Medium (400px)</option>
+                            <option value="500">Large (500px)</option>
+                        </select>
+                    </div>
+
+                    <div style="background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 8px; padding: 16px; margin-top: 16px;">
+                        <h3 style="color: #0c4a6e; margin-bottom: 8px; font-size: 1em;">ℹ️ Mini-Map Requirements:</h3>
+                        <ul style="color: #075985; font-size: 0.9em; line-height: 1.6; margin-left: 20px;">
+                            <li>GPS must be active and have fix</li>
+                            <li>Mini-map updater service must be running</li>
+                            <li>Track data must be processed</li>
+                            <li>Updates automatically with GPS position</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
 
             <!-- RIGHT SIDE: Preview -->
@@ -550,6 +595,11 @@
                 document.getElementById('custom-title').value = overlays.custom_title || '';
                 document.getElementById('speed-unit').value = overlays.speed_unit || 'mph';
                 document.getElementById('weather-api-key').value = overlays.weather_api_key || '';
+
+                // Load mini-map settings
+                document.getElementById('minimap-enabled').checked = overlays.minimap_enabled || false;
+                document.getElementById('minimap-position').value = overlays.minimap_position || 'bottom-right';
+                document.getElementById('minimap-size').value = overlays.minimap_size || '400';
 
                 selectedTemplate = overlays.template || 'minimal';
                 document.querySelectorAll('.template-option').forEach(opt => {
@@ -653,7 +703,11 @@
                 weather_api_key: document.getElementById('weather-api-key').value,
                 font_size: 24,
                 font_color: 'white',
-                background_opacity: 0.7
+                background_opacity: 0.7,
+                minimap_enabled: document.getElementById('minimap-enabled').checked,
+                minimap_track: 'baja1000_2025',
+                minimap_position: document.getElementById('minimap-position').value,
+                minimap_size: parseInt(document.getElementById('minimap-size').value)
             };
 
             try {
